@@ -617,13 +617,15 @@ func valueToGo(value unsafe.Pointer) interface{} {
 			if isUniform && uniformType != nil && uniformType.Kind() == reflect.String {
 				// Fast path: map[string]interface{}
 				// Note: this is the only path that supports JSON serialization natively.
+				// BREAKING CHANGE: Callers can no longer unconditionally type-assert to map[string]interface{}
+				// unless they guarantee their scripts only return string-keyed dictionaries.
 				// A complete typed Generics-based (Call[T]) approach will be introduced in a future PR.
 				m := make(map[string]interface{}, size)
 				for _, pair := range pairs {
 					m[pair.Key.(string)] = pair.Value
 				}
 				return m
-			} else if isUniform && uniformType != nil {
+			} else if isUniform {
 				// Reflect uniform path: map[T]interface{}
 				// Note: map[T]interface{} where T != string is NOT natively supported by encoding/json.
 				// Downstream consumers may experience panics if they attempt to json.Marshal this without conversion.
