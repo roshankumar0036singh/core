@@ -603,18 +603,19 @@ func valueToGo(value unsafe.Pointer) interface{} {
 				pairs[i] = KeyValuePair{Key: key, Value: val}
 
 				keyType := reflect.TypeOf(key)
+				if keyType != nil && !keyType.Comparable() {
+					panic(fmt.Errorf("metacall: map key type %v is not usable as a Go map key", keyType))
+				}
+
 				if i == 0 {
 					uniformType = keyType
-					if uniformType == nil || !uniformType.Comparable() {
-						isUniform = false
-					}
 				} else if isUniform && keyType != uniformType {
 					isUniform = false
 				}
 			}
 
 			// Second pass: construct the map
-			if isUniform && uniformType.Kind() == reflect.String {
+			if isUniform && uniformType != nil && uniformType.Kind() == reflect.String {
 				// Fast path: map[string]interface{}
 				m := make(map[string]interface{}, size)
 				for _, pair := range pairs {
@@ -622,6 +623,7 @@ func valueToGo(value unsafe.Pointer) interface{} {
 				}
 				return m
 			} else if isUniform {
+				// TODO: revisit with Go generics
 				// Reflect uniform path: map[T]interface{}
 				mapType := reflect.MapOf(uniformType, reflect.TypeOf((*interface{})(nil)).Elem())
 				m := reflect.MakeMapWithSize(mapType, int(size))
